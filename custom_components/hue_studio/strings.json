@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Hue Web",
+        "description": "Address of the hue-web service (it owns the connections to the bridges). Home Assistant must be allowed to reach port 8000 there.",
+        "data": { "url": "Address" }
+      }
+    },
+    "error": { "cannot_connect": "hue-web did not answer on /api/v1/healthz." },
+    "abort": { "already_configured": "This hue-web address is already configured." }
+  }
+}
