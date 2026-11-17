@@ -53,12 +53,34 @@ class _Base(DataUpdateCoordinator):
         return out
 
 
+# Reads that change rarely, every CAPACITY_EVERY seconds per bridge (and after a write or a configuration event):
+# Snapshot field -> (path under /bridges/{b}, query). A failed one keeps its last answer; the state still updates.
+SLOW_READS = {
+    "capacity": ("/capacity", {}),
+    "updates": ("/updates", {"notes": "false"}),
+    "usage": ("/usage", {"version": 3}),
+    "rules": ("/bridge-rules", {}),
+}
+
+
 class BridgesCoordinator(_Base):
     """{bridge name: Snapshot}: every bridge hue-web serves."""
 
     def __init__(self, hass, entry, api) -> None:
         super().__init__(hass, entry, api, "bridges", SCAN_INTERVAL)
-        self._capacity_at: dict[str, float] = {}
+        self._slow_at: dict[str, float] = {}
+
+    def slow_stale(self, name: str | None = None) -> None:
+        """Read the slow parts again on the next refresh (of one bridge, or of all)."""
+        if name is None:
+            self._slow_at.clear()
+        else:
+            self._slow_at.pop(name, None)
+
+    async def async_write(self, method: str, path: str, body=None, *, dry_run: bool = False) -> dict:
+        if not dry_run:
+            self.slow_stale()
+        return await super().async_write(method, path, body, dry_run=dry_run)
 
     async def _async_update_data(self) -> dict[str, Snapshot]:
         prev: dict[str, Snapshot] = self.data or {}
@@ -69,15 +91,17 @@ class BridgesCoordinator(_Base):
                 snap = Snapshot(name, await self.api.get(f"/bridges/{seg(name)}/state", version=3) or {})
                 old = prev.get(name)
                 now = time.monotonic()
-                if old is not None and now - self._capacity_at.get(name, 0) < CAPACITY_EVERY:
-                    snap.capacity = old.capacity
-                else:
-                    try:
-                        snap.capacity = await self.api.get(f"/bridges/{seg(name)}/capacity")
-                        self._capacity_at[name] = now
-                    except ApiError as exc:          # capacity goes unknown, the rest still updates
-                        _LOGGER.debug("capacity of %s: %s", name, exc)
-                        snap.capacity = old.capacity if old else None
+                fresh = old is None or now - self._slow_at.get(name, 0) >= CAPACITY_EVERY
+                for key, (path, query) in SLOW_READS.items():
+                    value = getattr(old, key) if old is not None else None
+                    if fresh:
+                        try:
+                            value = await self.api.get(f"/bridges/{seg(name)}{path}", **query)
+                        except ApiError as exc:          # this part goes stale or unknown, the rest still updates
+                            _LOGGER.debug("%s of %s: %s", key, name, exc)
+                    setattr(snap, key, value)
+                if fresh:
+                    self._slow_at[name] = now
                 out[name] = snap
         except ApiError as exc:
             raise UpdateFailed(str(exc)) from exc

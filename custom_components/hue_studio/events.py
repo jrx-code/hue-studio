@@ -14,7 +14,7 @@ import aiohttp
 
 from .const import SCAN_INTERVAL, STREAM_SCAN_INTERVAL
 from .coordinator import seg
-from .model import needs_refresh
+from .model import needs_refresh, needs_slow_reads
 
 _LOGGER = logging.getLogger(__name__)
 BACKOFF_START, BACKOFF_MAX = 5, 300
@@ -69,4 +69,6 @@ class EventStreams:
                     continue
                 if needs_refresh(frame):
                     self.refreshes += 1
+                    if needs_slow_reads(frame):
+                        self.rt.bridges.slow_stale(name)      # rules, firmware or scene usage changed too
                     await self.rt.bridges.async_request_refresh()     # debounced (2 s) by the coordinator

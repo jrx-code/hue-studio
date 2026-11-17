@@ -38,6 +38,9 @@
       },
       "scene_use": {
         "name": "Scene memory used"
+      },
+      "scenes_unreferenced": {
+        "name": "Scenes without references"
       }
     },
     "number": {
@@ -46,6 +49,12 @@
       },
       "sensitivity_of": {
         "name": "{name} motion sensitivity"
+      },
+      "dynamic_speed": {
+        "name": "Dynamic speed"
+      },
+      "dynamic_speed_of": {
+        "name": "{name} dynamic speed"
       }
     },
     "select": {
@@ -64,6 +73,22 @@
           "powerfail": "Restore after power failure",
           "last_on_state": "Last state"
         }
+      }
+    },
+    "switch": {
+      "schedule": {
+        "name": "{name} schedule"
+      },
+      "dynamic": {
+        "name": "Dynamic scene"
+      },
+      "dynamic_of": {
+        "name": "{name} dynamic scene"
+      }
+    },
+    "update": {
+      "firmware": {
+        "name": "Bridge and device software"
       }
     }
   },
@@ -171,6 +196,38 @@
         "dry_run": {
           "name": "Dry run",
           "description": "Plan the bridge calls and send nothing; the response lists them."
+        }
+      }
+    },
+    "restore_scene": {
+      "name": "Restore scene",
+      "description": "Put back an earlier version of a bridge scene from the hue-web history (kept before every edit).",
+      "fields": {
+        "scene": {
+          "name": "Scene",
+          "description": "Scene name (name@area when several areas have it), rid, or a Hue scene entity."
+        },
+        "version": {
+          "name": "Version",
+          "description": "1 = the version before the last edit, 2 = the one before that, ..."
+        },
+        "dry_run": {
+          "name": "Dry run",
+          "description": "Show which version would be restored and send nothing."
+        }
+      }
+    },
+    "delete_scenes": {
+      "name": "Delete unused scenes",
+      "description": "Delete bridge scenes to free scene memory. A scene a smart scene, a sensor or switch rule, a hue-web reaction, or a Home Assistant automation or script uses is skipped; dashboards are not checked.",
+      "fields": {
+        "scenes": {
+          "name": "Scenes",
+          "description": "Scene names (name@area), rids or Hue scene entities; the 'Scenes without references' sensor lists candidates."
+        },
+        "dry_run": {
+          "name": "Dry run",
+          "description": "List what would be deleted and skipped, delete nothing."
         }
       }
     }

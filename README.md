@@ -23,34 +23,47 @@ Settings > Devices & services > Hue Studio > Reconfigure changes the address lat
 
 ## Entities
 
-Entities of a sensor or a light are attached to the device the core `hue` integration already made for it.
+Entities about a light, sensor, room or zone are attached to the device the core `hue` integration already made for it.
 
-| Entity | What it shows or sets |
-|---|---|
-| `binary_sensor` Reachable | hue-web answers |
-| `sensor` Scenes, Scene memory | scenes stored on each bridge, and the share of the bridge limit in use |
-| `switch` per smart scene | the smart scene (schedule) is running; on and off start and stop it |
-| `number` Motion sensitivity | sensitivity of each motion sensor |
-| `select` Power-up | power-up behaviour of each light (disabled by default) |
-| `scene` per hub scene | a hue-web scene that spans bridges; activating it recalls it on every bridge |
+| Entity | Where | What it shows or sets |
+|---|---|---|
+| `switch` &lt;smart scene&gt; schedule | room or zone | the smart scene (schedule) runs; off stops it (core hue can only start it) |
+| `switch` Dynamic scene | room or zone | the active scene plays its colour palette; on plays it, off holds the colours |
+| `number` Dynamic speed | room or zone | palette speed of the active scene, 1 to 100 % |
+| `number` Motion sensitivity | motion sensor | sensitivity of the sensor |
+| `select` Power-on behaviour | light | after a power cut: safety, restore, last state (disabled by default) |
+| `update` Bridge and device software | bridge | devices ready to install; Install runs the bridge's install of everything ready (the bridge has no per-device install) |
+| `sensor` Scenes in bridge memory, Scene memory used | bridge | scenes stored and the share of the bridge limit in use |
+| `sensor` Scenes without references | bridge | scenes no smart scene, sensor or switch rule, hue-web reaction, Home Assistant automation or script recalls |
+| `scene` per hub scene | Hue Web | a hue-web scene that spans bridges; activating it recalls it on every bridge |
+| `binary_sensor` Reachable | Hue Web | hue-web answers |
+
+Dynamic scene and speed exist for rooms and zones with at least one scene that has a palette; those of zones start
+disabled (zones overlap the rooms).
 
 hue-web relays the bridge event stream, so a change made in the Hue app shows within seconds; while both streams are up
-the integration polls every 5 minutes, otherwise every minute. Entities of resources removed from a bridge leave the
-registry after two reads without them.
+the integration polls every 5 minutes, otherwise every minute. Scene usage, sensor and switch rules and software state
+are read every 5 minutes and after a change. Entities of resources removed from a bridge leave the registry after two
+reads without them.
 
 ## Services
 
 Targets are names (case and Polish diacritics ignored), `bridge:name` when two bridges share a name, a resource id, or
 an entity of the core `hue` integration. Every service takes `dry_run: true` and then answers the writes it would make
-without sending any. With `return_response` each one answers what it did.
+without sending any. With `return_response` each one answers what it did. Services that change stored scenes need an
+admin user (automations and scripts may call them).
 
 | Service | Does |
 |---|---|
 | `hue_studio.create_hub_scene` | a hub scene from the current state of rooms or zones, on one or several bridges |
 | `hue_studio.snapshot_scene` | a bridge scene from the current state of a room or zone |
 | `hue_studio.copy_scene` | a bridge scene copied to another room or zone |
+| `hue_studio.restore_scene` | an earlier version of a bridge scene from the hue-web history (1 = before the last edit) |
+| `hue_studio.delete_scenes` | deletes bridge scenes to free memory; a used scene is skipped with the reason; dry run unless `dry_run: false` |
 | `hue_studio.set_effect` | an effect on a room, zone or light (`candle`, `fire`, ... on the light; `breathe`, `wave`, `random` run by hue-web for N minutes); `no_effect` stops both |
 | `hue_studio.timed_effect` | `sunrise` or `sunset` over N minutes |
+
+`delete_scenes` does not see dashboards or the Hue app's own scene list: review the candidates before deleting.
 
 ## Commands
 

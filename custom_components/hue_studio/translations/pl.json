@@ -38,6 +38,9 @@
       },
       "scene_use": {
         "name": "Zajęta pamięć scen"
+      },
+      "scenes_unreferenced": {
+        "name": "Sceny bez powiązań"
       }
     },
     "number": {
@@ -46,6 +49,12 @@
       },
       "sensitivity_of": {
         "name": "{name}: czułość ruchu"
+      },
+      "dynamic_speed": {
+        "name": "Prędkość dynamiki"
+      },
+      "dynamic_speed_of": {
+        "name": "{name} prędkość dynamiki"
       }
     },
     "select": {
@@ -64,6 +73,22 @@
           "powerfail": "Przywróć po awarii zasilania",
           "last_on_state": "Ostatni stan"
         }
+      }
+    },
+    "switch": {
+      "schedule": {
+        "name": "{name} harmonogram"
+      },
+      "dynamic": {
+        "name": "Scena dynamiczna"
+      },
+      "dynamic_of": {
+        "name": "{name} scena dynamiczna"
+      }
+    },
+    "update": {
+      "firmware": {
+        "name": "Oprogramowanie mostka i urządzeń"
       }
     }
   },
@@ -171,6 +196,38 @@
         "dry_run": {
           "name": "Próba",
           "description": "Zaplanuj wywołania mostka i nic nie wysyłaj; odpowiedź je wymienia."
+        }
+      }
+    },
+    "restore_scene": {
+      "name": "Przywróć scenę",
+      "description": "Przywraca wcześniejszą wersję sceny mostka z historii hue-web (zapisywanej przed każdą edycją).",
+      "fields": {
+        "scene": {
+          "name": "Scena",
+          "description": "Nazwa sceny (nazwa@obszar, gdy kilka obszarów ma taką), rid albo encja sceny Hue."
+        },
+        "version": {
+          "name": "Wersja",
+          "description": "1 = wersja sprzed ostatniej edycji, 2 = wcześniejsza itd."
+        },
+        "dry_run": {
+          "name": "Na próbę",
+          "description": "Pokaż, która wersja zostałaby przywrócona, nic nie wysyłaj."
+        }
+      }
+    },
+    "delete_scenes": {
+      "name": "Usuń nieużywane sceny",
+      "description": "Usuwa sceny z mostka, żeby zwolnić pamięć scen. Scena używana przez harmonogram, regułę czujnika lub przycisku, reakcję hue-web albo automatyzację lub skrypt HA jest pomijana; dashboardów usługa nie sprawdza.",
+      "fields": {
+        "scenes": {
+          "name": "Sceny",
+          "description": "Nazwy scen (nazwa@obszar), rid albo encje scen Hue; kandydatów pokazuje czujnik 'Sceny bez powiązań'."
+        },
+        "dry_run": {
+          "name": "Na próbę",
+          "description": "Pokaż, co zostałoby usunięte i pominięte, nic nie usuwaj."
         }
       }
     }

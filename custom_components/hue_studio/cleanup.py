@@ -22,10 +22,13 @@ def expected_ids(rt) -> set[str] | None:
     out = {f"{HUB_DEVICE}_online"}
     for snap in rt.bridges.data.values():
         bk = bridge_key(snap)
-        out |= {f"{bk}_scene_count_bridge", f"{bk}_scene_use_bridge"}
+        out |= {f"{bk}_scene_count_bridge", f"{bk}_scene_use_bridge", f"{bk}_scenes_unreferenced_bridge"}
+        if snap.updates:
+            out.add(f"{bk}_firmware_bridge")
         out |= {f"{bk}_smart_scene_{rid}" for rid in snap.smart_scenes()}
         out |= {f"{bk}_motion_sensitivity_{rid}" for rid, s in snap.motion_sensors().items() if isinstance(s.get("sensitivity_max"), int)}
         out |= {f"{bk}_powerup_{rid}" for rid in snap.powerup_lights()}
+        out |= {f"{bk}_{k}_{rid}" for rid in snap.dynamic_areas() for k in ("dynamic", "dynamic_speed")}
     out |= {f"{HUB_DEVICE}_scene_{sid}" for sid in (rt.hub.data or {})}
     return out
 

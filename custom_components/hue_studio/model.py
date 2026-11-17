@@ -18,6 +18,9 @@ class Snapshot:
     name: str
     state: dict = field(default_factory=dict)
     capacity: dict | None = None
+    updates: dict | None = None        # GET /updates?notes=false: the bridge and every device's software state
+    usage: dict | None = None          # GET /usage?version=3: scene id -> what recalls it (smart scenes, reactions)
+    rules: dict | None = None          # GET /bridge-rules: native rules of sensors and switches, scenes they recall
 
     @property
     def info(self) -> dict:
@@ -68,9 +71,57 @@ class Snapshot:
                     return [x["id"] for x in g.get("lights") or [] if x.get("id")]
         return []
 
+    def dynamic_areas(self) -> dict[str, dict]:
+        """Rooms and zones with at least one scene that can play its palette: rid -> {name, kind}."""
+        groups = {s.get("group") for s in self.state.get("scenes") or [] if s.get("palette")}
+        return {rid: a for rid, a in self.areas().items() if rid in groups}
+
+    def active_scene(self, area: str) -> dict | None:
+        """The scene the bridge reports active in a room or zone (the playing one first), if any."""
+        rows = [s for s in self.state.get("scenes") or [] if s.get("group") == area and s.get("active")]
+        rows.sort(key=lambda s: not s.get("playing"))
+        return rows[0] if rows else None
+
     def scene_usage(self) -> tuple[int | None, int | None]:
         cap = self.capacity or {}
         return cap.get("scenes"), cap.get("max_scenes")
+
+
+def firmware(updates: dict | None) -> dict | None:
+    """The bridge's software state for an update entity: version, devices ready and pending, installing."""
+    if not updates:
+        return None
+    b = updates.get("bridge") or {}
+    devices = updates.get("devices") or []
+    ready = [d for d in devices if d.get("state") == "ready_to_install"]
+    pending = [d for d in devices if d.get("state") == "update_pending"]
+    return {"version": b.get("swversion"), "bridge_ready": b.get("state") == "readytoinstall",
+            "install_available": bool(b.get("install_available")),
+            "installing": bool((updates.get("counts") or {}).get("installing")) or b.get("state") == "installing",
+            "ready": ready, "pending": pending, "autoinstall": (b.get("autoinstall") or {}).get("on")}
+
+
+def scene_refs(snap: "Snapshot") -> dict[str, list[str]] | None:
+    """scene id -> what on the bridge side recalls it (smart scenes, hue-web reactions, native sensor/switch rules).
+
+    None while either source is unknown: a scene is never called unreferenced on a partial picture.
+    """
+    if snap.usage is None or snap.rules is None:
+        return None
+    out: dict[str, list[str]] = {}
+    for sid, rows in ((snap.usage or {}).get("scenes") or {}).items():
+        for row in rows or []:
+            out.setdefault(sid, []).append(f"{row.get('kind', 'smart_scene')}: {row.get('name') or row.get('id')}")
+    names = {r["id"]: r.get("name") for r in (snap.rules or {}).get("rules") or []}
+    for sid, rule_ids in ((snap.rules or {}).get("scenes") or {}).items():
+        for rid in rule_ids:
+            out.setdefault(sid, []).append(f"bridge rule: {names.get(rid) or rid}")
+    return out
+
+
+def scene_label(snap: "Snapshot", scene: dict) -> str:
+    area = snap.area_names().get(scene.get("group")) or ""
+    return f"{scene.get('name') or scene.get('id')}@{area}" if area else str(scene.get("name") or scene.get("id"))
 
 
 def capacity_percent(used: int | None, limit: int | None) -> float | None:
@@ -179,7 +230,7 @@ def resolve_scene(snaps: dict[str, Snapshot], text: str) -> tuple[str, dict]:
 
 
 # -- the bridge event stream (SSE relay of CLIP v2 events) ---------------------------------------------------------------
-STRUCTURE_TYPES = {"scene", "smart_scene", "light", "device", "room", "zone", "motion", "grouped_light"}
+STRUCTURE_TYPES = {"scene", "smart_scene", "light", "device", "room", "zone", "motion", "grouped_light", "behavior_instance"}
 
 
 def needs_refresh(frame: list) -> bool:
@@ -202,4 +253,34 @@ def needs_refresh(frame: list) -> bool:
                 return True
             if rtype == "light" and "powerup" in row:
                 return True
+            if rtype == "behavior_instance" and "enabled" in row:      # a sensor or switch rule on/off
+                return True
+            if rtype in ("device_software_update", "bridge"):           # firmware state of a device or the bridge
+                return True
+            # A scene that starts playing its palette, or a new speed. Other recalls (status static/active) are frequent and
+            # change no entity: a dynamics switch shows its own writes at once and other changes at the next poll.
+            if rtype == "scene" and ("speed" in row or (row.get("status") or {}).get("active") == "dynamic_palette"):
+                return True
     return False
+
+
+SLOW_TYPES = {"behavior_instance", "device_software_update", "bridge", "scene", "smart_scene"}
+
+
+def needs_slow_reads(frame: list) -> bool:
+    """Whether a frame changes what the slow reads hold: rules, firmware, or which scenes exist and recall what.
+
+    A scene recall (status update) is not one: it changes the state only, and recalls are frequent.
+    """
+    for event in frame if isinstance(frame, list) else []:
+        kind = event.get("type")
+        for row in event.get("data") or []:
+            rtype = row.get("type")
+            if rtype not in SLOW_TYPES:
+                continue
+            if kind in ("add", "delete") or rtype in ("behavior_instance", "device_software_update", "bridge"):
+                return True
+            if rtype == "smart_scene" and "week_timeslots" in row:
+                return True
+    return False
+

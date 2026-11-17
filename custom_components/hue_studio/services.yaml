@@ -118,3 +118,35 @@ timed_effect:
       default: false
       selector:
         boolean:
+
+restore_scene:
+  fields:
+    scene:
+      required: true
+      example: "Relaks@Salon"
+      selector:
+        text:
+    version:
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 50
+          mode: box
+    dry_run:
+      default: false
+      selector:
+        boolean:
+
+delete_scenes:
+  fields:
+    scenes:
+      required: true
+      example: '["Stara scena@Salon"]'
+      selector:
+        text:
+          multiple: true
+    dry_run:
+      default: true
+      selector:
+        boolean:

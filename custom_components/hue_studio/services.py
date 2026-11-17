@@ -7,12 +7,14 @@ from __future__ import annotations
 
 import voluptuous as vol
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
-from homeassistant.exceptions import ServiceValidationError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv, entity_registry as er
+from homeassistant.helpers.service import async_register_admin_service
 
 from .const import CORE_HUE, DOMAIN
 from .coordinator import seg
-from .model import HUB_EFFECTS, TIMED_EFFECTS, TargetError, resolve, resolve_scene
+from .model import HUB_EFFECTS, TIMED_EFFECTS, TargetError, resolve, resolve_scene, scene_label, scene_refs
+from .refs import ha_scene_refs
 
 DRY = {vol.Optional("dry_run", default=False): cv.boolean}
 
@@ -110,6 +112,63 @@ async def _timed_effect(call: ServiceCall):
     return await rt.bridges.async_write("PUT", path, body, dry_run=call.data["dry_run"])
 
 
+async def _restore_scene(call: ServiceCall):
+    """An earlier version of a bridge scene from hue-web's history (1 = the version before the last edit)."""
+    hass, rt = call.hass, _runtime(call.hass)
+    try:
+        bridge, scene = resolve_scene(rt.bridges.data or {}, _hue_rid(hass, call.data["scene"]))
+    except TargetError as exc:
+        raise ServiceValidationError(str(exc)) from exc
+    path = f"/bridges/{seg(bridge)}/scene/{seg(scene['id'])}"
+    history = await rt.api.get(f"{path}/history", version=3) or []
+    pos = call.data["version"]
+    if not history:
+        raise ServiceValidationError(f"hue-web keeps no earlier version of {scene.get('name')}")
+    if pos > len(history):
+        raise ServiceValidationError(f"{scene.get('name')} has {len(history)} earlier version(s), not {pos}")
+    row = history[pos - 1]
+    if call.data["dry_run"]:      # hue-web has no dry run for a restore: plan here, send nothing
+        return {"dry_run": True, "writes": [], "would_restore": {"bridge": bridge, "scene": scene["id"], **row}}
+    return await rt.bridges.async_write("POST", f"{path}/restore", {"version_id": row["version_id"]})
+
+
+async def _delete_scenes(call: ServiceCall):
+    """Delete bridge scenes nothing recalls; a scene something uses is skipped with the reason, never deleted."""
+    hass, rt = call.hass, _runtime(call.hass)
+    snaps = rt.bridges.data or {}
+    deleted, skipped, plan = [], [], []
+    for text in call.data["scenes"]:
+        try:
+            bridge, scene = resolve_scene(snaps, _hue_rid(hass, text))
+        except TargetError as exc:
+            skipped.append({"scene": text, "reason": str(exc)})
+            continue
+        snap = snaps[bridge]
+        label = scene_label(snap, scene)
+        refs = scene_refs(snap)
+        if refs is None:
+            skipped.append({"scene": label, "reason": "scene usage or bridge rules are not known yet"})
+            continue
+        users = refs.get(scene["id"], []) + ha_scene_refs(hass, [scene["id"]]).get(scene["id"], [])
+        if users:
+            skipped.append({"scene": label, "reason": "used by " + ", ".join(users[:5])})
+            continue
+        plan.append((bridge, scene["id"], label))
+    if call.data["dry_run"]:
+        writes = []
+        for bridge, sid, label in plan:
+            out = await rt.bridges.async_write("DELETE", f"/bridges/{seg(bridge)}/scene/{seg(sid)}", dry_run=True)
+            writes += out.get("writes") or []
+        return {"dry_run": True, "writes": writes, "would_delete": [p[2] for p in plan], "skipped": skipped}
+    for bridge, sid, label in plan:
+        try:
+            await rt.bridges.async_write("DELETE", f"/bridges/{seg(bridge)}/scene/{seg(sid)}")
+            deleted.append(label)
+        except HomeAssistantError as exc:
+            skipped.append({"scene": label, "reason": str(exc)})
+    return {"dry_run": False, "deleted": deleted, "skipped": skipped}
+
+
 SERVICES = {
     "create_hub_scene": (_create_hub_scene, vol.Schema({vol.Required("name"): cv.string,
                                                         vol.Required("areas"): vol.All(cv.ensure_list, [cv.string], vol.Length(min=1)), **DRY})),
@@ -121,9 +180,22 @@ SERVICES = {
                                             vol.Optional("speed"): vol.All(vol.Coerce(float), vol.Range(min=0, max=1)), **DRY})),
     "timed_effect": (_timed_effect, vol.Schema({vol.Required("target"): cv.string, vol.Required("effect"): vol.In(TIMED_EFFECTS),
                                                 vol.Optional("minutes"): vol.All(vol.Coerce(float), vol.Range(min=1, max=60)), **DRY})),
+    "restore_scene": (_restore_scene, vol.Schema({vol.Required("scene"): cv.string,
+                                                  vol.Optional("version", default=1): vol.All(vol.Coerce(int), vol.Range(min=1)), **DRY})),
+    # Deleting is the one service that dry-runs unless told otherwise.
+    "delete_scenes": (_delete_scenes, vol.Schema({vol.Required("scenes"): vol.All(cv.ensure_list, [cv.string], vol.Length(min=1, max=100)),
+                                                  vol.Optional("dry_run", default=True): cv.boolean})),
 }
+
+
+# Services that change what a bridge or hue-web keeps (scenes): admin users only, like the websocket write commands.
+# Automations and scripts run without a user and may call them. Effects act on lights like light.turn_on: open to all.
+ADMIN = {"create_hub_scene", "snapshot_scene", "copy_scene", "restore_scene", "delete_scenes"}
 
 
 def async_register(hass: HomeAssistant) -> None:
     for name, (handler, schema) in SERVICES.items():
-        hass.services.async_register(DOMAIN, name, handler, schema=schema, supports_response=SupportsResponse.OPTIONAL)
+        if name in ADMIN:
+            async_register_admin_service(hass, DOMAIN, name, handler, schema=schema, supports_response=SupportsResponse.OPTIONAL)
+        else:
+            hass.services.async_register(DOMAIN, name, handler, schema=schema, supports_response=SupportsResponse.OPTIONAL)
