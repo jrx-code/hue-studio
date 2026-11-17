@@ -1,8 +1,8 @@
 # Hue Studio
 
-A Home Assistant integration for what the core `hue` integration does not do: scene editing, scene history and restore,
-gradients, power-up behaviour, room and zone membership, smart scene editing, motion sensor settings and the Zigbee
-device search, as websocket commands.
+A Home Assistant integration for what the core `hue` integration does not do: scene memory per bridge, smart scene
+schedules, motion sensor sensitivity, power-up behaviour, scenes that span several bridges, scene snapshots and copies,
+effects with a timer, plus scene editing, history and restore as websocket commands.
 
 Hue Studio is a thin client of a **hue-web** server (`/api/v1`). hue-web is the only process that talks to the Hue
 bridges, so there is one connection per bridge, one traffic limiter and one scene history. Without a hue-web server this
@@ -10,14 +10,47 @@ integration does nothing.
 
 ## Install
 
-1. HACS > Integrations > three dots > Custom repositories: add `https://github.com/jrx-code/hue-studio`, category
-   Integration, then download Hue Studio.
+1. Add the custom repository `https://github.com/jrx-code/hue-studio`, category Integration, and download Hue Studio
+   (Settings > Marketplace from Home Assistant 2026.11, HACS on older versions).
 2. Restart Home Assistant.
 3. Settings > Devices & services > Add integration > Hue Studio, and enter the address of hue-web
    (for example `http://hue-web.local:8000`). The form checks `GET /healthz` before it saves.
 
 hue-web has no login of its own on this port: allow only Home Assistant (and your reverse proxy) to reach it, for
 example with a firewall rule on the host.
+
+Settings > Devices & services > Hue Studio > Reconfigure changes the address later.
+
+## Entities
+
+Entities of a sensor or a light are attached to the device the core `hue` integration already made for it.
+
+| Entity | What it shows or sets |
+|---|---|
+| `binary_sensor` Reachable | hue-web answers |
+| `sensor` Scenes, Scene memory | scenes stored on each bridge, and the share of the bridge limit in use |
+| `switch` per smart scene | the smart scene (schedule) is running; on and off start and stop it |
+| `number` Motion sensitivity | sensitivity of each motion sensor |
+| `select` Power-up | power-up behaviour of each light (disabled by default) |
+| `scene` per hub scene | a hue-web scene that spans bridges; activating it recalls it on every bridge |
+
+hue-web relays the bridge event stream, so a change made in the Hue app shows within seconds; while both streams are up
+the integration polls every 5 minutes, otherwise every minute. Entities of resources removed from a bridge leave the
+registry after two reads without them.
+
+## Services
+
+Targets are names (case and Polish diacritics ignored), `bridge:name` when two bridges share a name, a resource id, or
+an entity of the core `hue` integration. Every service takes `dry_run: true` and then answers the writes it would make
+without sending any. With `return_response` each one answers what it did.
+
+| Service | Does |
+|---|---|
+| `hue_studio.create_hub_scene` | a hub scene from the current state of rooms or zones, on one or several bridges |
+| `hue_studio.snapshot_scene` | a bridge scene from the current state of a room or zone |
+| `hue_studio.copy_scene` | a bridge scene copied to another room or zone |
+| `hue_studio.set_effect` | an effect on a room, zone or light (`candle`, `fire`, ... on the light; `breathe`, `wave`, `random` run by hue-web for N minutes); `no_effect` stops both |
+| `hue_studio.timed_effect` | `sunrise` or `sunset` over N minutes |
 
 ## Commands
 

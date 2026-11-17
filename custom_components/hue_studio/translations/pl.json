@@ -1,0 +1,178 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Hue Web",
+        "description": "Adres usługi hue-web (to ona łączy się z mostkami). Home Assistant musi mieć dostęp do jej portu 8000.",
+        "data": {
+          "url": "Adres"
+        }
+      },
+      "reconfigure": {
+        "title": "Hue Web",
+        "description": "Nowy adres hue-web.",
+        "data": {
+          "url": "Adres"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "hue-web nie odpowiada na /api/v1/healthz.",
+      "invalid_url": "Adres musi zaczynać się od http:// albo https://."
+    },
+    "abort": {
+      "already_configured": "Ten adres hue-web jest już skonfigurowany.",
+      "single_instance_allowed": "Hue Studio jest już skonfigurowane.",
+      "reconfigure_successful": "Adres został zmieniony."
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "hue_web": {
+        "name": "Osiągalny"
+      }
+    },
+    "sensor": {
+      "scene_count": {
+        "name": "Sceny w pamięci mostka"
+      },
+      "scene_use": {
+        "name": "Zajęta pamięć scen"
+      }
+    },
+    "number": {
+      "sensitivity": {
+        "name": "Czułość ruchu"
+      },
+      "sensitivity_of": {
+        "name": "{name}: czułość ruchu"
+      }
+    },
+    "select": {
+      "powerup": {
+        "name": "Po włączeniu zasilania",
+        "state": {
+          "safety": "Bezpieczne (jasne białe)",
+          "powerfail": "Przywróć po awarii zasilania",
+          "last_on_state": "Ostatni stan"
+        }
+      },
+      "powerup_of": {
+        "name": "{name}: po włączeniu zasilania",
+        "state": {
+          "safety": "Bezpieczne (jasne białe)",
+          "powerfail": "Przywróć po awarii zasilania",
+          "last_on_state": "Ostatni stan"
+        }
+      }
+    }
+  },
+  "services": {
+    "create_hub_scene": {
+      "name": "Utwórz scenę JI-hub",
+      "description": "Zapisuje bieżące światła pomieszczeń lub stref (także z obu mostków) jako scenę hue-web; nie zajmuje pamięci mostka.",
+      "fields": {
+        "name": {
+          "name": "Nazwa",
+          "description": "Nazwa sceny, do 40 znaków."
+        },
+        "areas": {
+          "name": "Obszary",
+          "description": "Pomieszczenia lub strefy: nazwa z Hue, mostek:nazwa, rid albo encja światła pokoju z integracji Hue."
+        },
+        "dry_run": {
+          "name": "Próba",
+          "description": "Zaplanuj wywołania mostka i nic nie wysyłaj; odpowiedź je wymienia."
+        }
+      }
+    },
+    "snapshot_scene": {
+      "name": "Zapisz scenę w mostku",
+      "description": "Zapisuje bieżące światła pomieszczenia lub strefy jako nową scenę w pamięci mostka.",
+      "fields": {
+        "area": {
+          "name": "Obszar",
+          "description": "Pomieszczenie lub strefa: nazwa z Hue, mostek:nazwa, rid albo encja światła pokoju."
+        },
+        "name": {
+          "name": "Nazwa",
+          "description": "Nazwa sceny."
+        },
+        "dry_run": {
+          "name": "Próba",
+          "description": "Zaplanuj wywołania mostka i nic nie wysyłaj; odpowiedź je wymienia."
+        }
+      }
+    },
+    "copy_scene": {
+      "name": "Kopiuj scenę",
+      "description": "Kopiuje scenę mostka do innego pomieszczenia lub strefy tego samego mostka.",
+      "fields": {
+        "scene": {
+          "name": "Scena",
+          "description": "Nazwa sceny (nazwa@obszar, gdy jest w kilku), rid albo encja sceny z integracji Hue."
+        },
+        "target": {
+          "name": "Obszar docelowy",
+          "description": "Pomieszczenie lub strefa."
+        },
+        "name": {
+          "name": "Nazwa",
+          "description": "Nazwa kopii (domyślnie ta sama)."
+        },
+        "dry_run": {
+          "name": "Próba",
+          "description": "Zaplanuj wywołania mostka i nic nie wysyłaj; odpowiedź je wymienia."
+        }
+      }
+    },
+    "set_effect": {
+      "name": "Włącz efekt",
+      "description": "Uruchamia efekt na świetle, pomieszczeniu lub strefie. breathe, wave i random prowadzi hue-web przez podaną liczbę minut; no_effect zatrzymuje oba rodzaje.",
+      "fields": {
+        "target": {
+          "name": "Cel",
+          "description": "Światło, pomieszczenie lub strefa: nazwa z Hue, mostek:nazwa, rid albo encja światła z integracji Hue."
+        },
+        "effect": {
+          "name": "Efekt",
+          "description": "Efekt mostka (candle, fire, ...) albo hue-web (breathe, wave, random)."
+        },
+        "minutes": {
+          "name": "Minuty",
+          "description": "Jak długo trwa efekt hue-web (domyślnie 10)."
+        },
+        "speed": {
+          "name": "Szybkość",
+          "description": "Od 0 do 1."
+        },
+        "dry_run": {
+          "name": "Próba",
+          "description": "Zaplanuj wywołania mostka i nic nie wysyłaj; odpowiedź je wymienia."
+        }
+      }
+    },
+    "timed_effect": {
+      "name": "Wschód lub zachód słońca",
+      "description": "Światło, pomieszczenie lub strefa rozjaśnia się (sunrise) albo ściemnia (sunset) przez podaną liczbę minut; no_effect zatrzymuje.",
+      "fields": {
+        "target": {
+          "name": "Cel",
+          "description": "Światło, pomieszczenie lub strefa."
+        },
+        "effect": {
+          "name": "Efekt",
+          "description": "sunrise, sunset albo no_effect."
+        },
+        "minutes": {
+          "name": "Minuty",
+          "description": "Od 1 do 60."
+        },
+        "dry_run": {
+          "name": "Próba",
+          "description": "Zaplanuj wywołania mostka i nic nie wysyłaj; odpowiedź je wymienia."
+        }
+      }
+    }
+  }
+}

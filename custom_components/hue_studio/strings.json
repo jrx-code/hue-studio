@@ -4,10 +4,175 @@
       "user": {
         "title": "Hue Web",
         "description": "Address of the hue-web service (it owns the connections to the bridges). Home Assistant must be allowed to reach port 8000 there.",
-        "data": { "url": "Address" }
+        "data": {
+          "url": "Address"
+        }
+      },
+      "reconfigure": {
+        "title": "Hue Web",
+        "description": "New address of hue-web.",
+        "data": {
+          "url": "Address"
+        }
       }
     },
-    "error": { "cannot_connect": "hue-web did not answer on /api/v1/healthz." },
-    "abort": { "already_configured": "This hue-web address is already configured." }
+    "error": {
+      "cannot_connect": "hue-web did not answer on /api/v1/healthz.",
+      "invalid_url": "The address must start with http:// or https://."
+    },
+    "abort": {
+      "already_configured": "This hue-web address is already configured.",
+      "single_instance_allowed": "Hue Studio is already configured.",
+      "reconfigure_successful": "The address is changed."
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "hue_web": {
+        "name": "Reachable"
+      }
+    },
+    "sensor": {
+      "scene_count": {
+        "name": "Scenes in bridge memory"
+      },
+      "scene_use": {
+        "name": "Scene memory used"
+      }
+    },
+    "number": {
+      "sensitivity": {
+        "name": "Motion sensitivity"
+      },
+      "sensitivity_of": {
+        "name": "{name} motion sensitivity"
+      }
+    },
+    "select": {
+      "powerup": {
+        "name": "Power-on behaviour",
+        "state": {
+          "safety": "Safety (bright white)",
+          "powerfail": "Restore after power failure",
+          "last_on_state": "Last state"
+        }
+      },
+      "powerup_of": {
+        "name": "{name} power-on behaviour",
+        "state": {
+          "safety": "Safety (bright white)",
+          "powerfail": "Restore after power failure",
+          "last_on_state": "Last state"
+        }
+      }
+    }
+  },
+  "services": {
+    "create_hub_scene": {
+      "name": "Create JI-hub scene",
+      "description": "Save the current lights of one or more rooms or zones (both bridges too) as a scene kept by hue-web; it uses no bridge memory.",
+      "fields": {
+        "name": {
+          "name": "Name",
+          "description": "Scene name, up to 40 characters."
+        },
+        "areas": {
+          "name": "Areas",
+          "description": "Rooms or zones: Hue name, bridge:name, rid, or a Hue light entity of a room."
+        },
+        "dry_run": {
+          "name": "Dry run",
+          "description": "Plan the bridge calls and send nothing; the response lists them."
+        }
+      }
+    },
+    "snapshot_scene": {
+      "name": "Save scene in the bridge",
+      "description": "Save the current lights of a room or zone as a new scene in the bridge memory.",
+      "fields": {
+        "area": {
+          "name": "Area",
+          "description": "Room or zone: Hue name, bridge:name, rid, or a Hue room light entity."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Scene name."
+        },
+        "dry_run": {
+          "name": "Dry run",
+          "description": "Plan the bridge calls and send nothing; the response lists them."
+        }
+      }
+    },
+    "copy_scene": {
+      "name": "Copy scene",
+      "description": "Copy a bridge scene to another room or zone of the same bridge.",
+      "fields": {
+        "scene": {
+          "name": "Scene",
+          "description": "Scene name (name@area when several areas have it), rid, or a Hue scene entity."
+        },
+        "target": {
+          "name": "Target area",
+          "description": "Room or zone."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Name of the copy (default: the same)."
+        },
+        "dry_run": {
+          "name": "Dry run",
+          "description": "Plan the bridge calls and send nothing; the response lists them."
+        }
+      }
+    },
+    "set_effect": {
+      "name": "Set effect",
+      "description": "Start a light effect on a light, room or zone. breathe, wave and random are run by hue-web for a number of minutes; no_effect stops both kinds.",
+      "fields": {
+        "target": {
+          "name": "Target",
+          "description": "Light, room or zone: Hue name, bridge:name, rid, or a Hue light entity."
+        },
+        "effect": {
+          "name": "Effect",
+          "description": "Bridge effect (candle, fire, ...) or a hue-web effect (breathe, wave, random)."
+        },
+        "minutes": {
+          "name": "Minutes",
+          "description": "How long a hue-web effect runs (default 10)."
+        },
+        "speed": {
+          "name": "Speed",
+          "description": "0 to 1."
+        },
+        "dry_run": {
+          "name": "Dry run",
+          "description": "Plan the bridge calls and send nothing; the response lists them."
+        }
+      }
+    },
+    "timed_effect": {
+      "name": "Sunrise or sunset",
+      "description": "Let a light, room or zone brighten (sunrise) or dim (sunset) over a number of minutes; no_effect stops it.",
+      "fields": {
+        "target": {
+          "name": "Target",
+          "description": "Light, room or zone."
+        },
+        "effect": {
+          "name": "Effect",
+          "description": "sunrise, sunset or no_effect."
+        },
+        "minutes": {
+          "name": "Minutes",
+          "description": "1 to 60."
+        },
+        "dry_run": {
+          "name": "Dry run",
+          "description": "Plan the bridge calls and send nothing; the response lists them."
+        }
+      }
+    }
   }
 }
