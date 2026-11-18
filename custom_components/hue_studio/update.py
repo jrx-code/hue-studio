@@ -63,13 +63,20 @@ class BridgeFirmware(StudioEntity, UpdateEntity):
         text = "Ready: " + ", ".join(parts) if parts else ""
         if fw.get("pending"):
             text += ("; " if text else "") + f"downloading: {len(fw['pending'])}"
-        return text[:SUMMARY_MAX] or None
+        if not text:
+            return None
+        # Installing restarts the bridge: 2-3 minutes without light control (seen 2026-11-17), so say it first (#218).
+        note = "Install restarts the bridge (2-3 min without control). "
+        if fw.get("autoinstall") and fw.get("autoinstall_time"):
+            note += f"Night install is on at {fw['autoinstall_time']}. "
+        return (note + text)[:SUMMARY_MAX]
 
     @property
     def extra_state_attributes(self):
         fw = self.resource() or {}
         return {"ready": [d.get("name") for d in fw.get("ready") or []],
-                "pending": [d.get("name") for d in fw.get("pending") or []], "autoinstall": fw.get("autoinstall")}
+                "pending": [d.get("name") for d in fw.get("pending") or []], "autoinstall": fw.get("autoinstall"),
+                "autoinstall_time": fw.get("autoinstall_time")}
 
     async def async_install(self, version, backup, **kwargs) -> None:
         await self.coordinator.async_write("POST", f"/bridges/{seg(self.bridge)}/updates/install", {"confirm": True})

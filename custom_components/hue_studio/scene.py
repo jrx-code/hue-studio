@@ -51,7 +51,7 @@ class HubScene(CoordinatorEntity, Scene):
         out = await self.coordinator.async_write("POST", f"/hub-scenes/{seg(self.sid)}/recall")
         res = out.get("result") or {}
         errors = res.get("errors") or []
-        await self.bridges.async_request_refresh()
+        await self.bridges.async_request_all()
         if errors and not res.get("sent"):
             raise HomeAssistantError(f"Hue Studio: {self.name}: " + "; ".join(errors[:3]))
         if errors:

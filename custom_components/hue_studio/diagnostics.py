@@ -20,5 +20,7 @@ async def async_get_config_entry_diagnostics(hass, entry) -> dict:
         "hub_scenes": None if rt.hub.data is None else len(rt.hub.data),
         "streams_up": sorted(rt.events.up) if rt.events else [],
         "stream_refreshes": rt.events.refreshes if rt.events else 0,
+        "state_reads": dict(rt.bridges.state_reads),
+        "stream_patches": rt.events.patched if rt.events else 0,
         "poll_seconds": rt.bridges.update_interval.total_seconds() if rt.bridges.update_interval else None,
     }

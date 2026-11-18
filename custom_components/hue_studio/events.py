@@ -14,7 +14,7 @@ import aiohttp
 
 from .const import SCAN_INTERVAL, STREAM_SCAN_INTERVAL
 from .coordinator import seg
-from .model import needs_refresh, needs_slow_reads
+from .model import needs_refresh, needs_slow_reads, smart_scene_states
 
 _LOGGER = logging.getLogger(__name__)
 BACKOFF_START, BACKOFF_MAX = 5, 300
@@ -25,6 +25,7 @@ class EventStreams:
         self.hass, self.entry, self.rt = hass, entry, runtime
         self.up: set[str] = set()
         self.refreshes = 0               # how many refreshes the streams asked for (diagnostics)
+        self.patched = 0                 # smart scene starts/stops applied from the event, no read (diagnostics)
         self._sleep = asyncio.sleep      # tests replace the pause between reconnects
 
     def start(self) -> None:
@@ -67,8 +68,12 @@ class EventStreams:
                     frame = json.loads(line[5:].strip())
                 except ValueError:
                     continue
+                states = smart_scene_states(frame)
+                if states and self.rt.bridges.patch_smart_scenes(name, states):
+                    self.patched += 1
+                    continue
                 if needs_refresh(frame):
                     self.refreshes += 1
                     if needs_slow_reads(frame):
                         self.rt.bridges.slow_stale(name)      # rules, firmware or scene usage changed too
-                    await self.rt.bridges.async_request_refresh()     # debounced (2 s) by the coordinator
+                    await self.rt.bridges.async_request_bridge(name)     # debounced (2 s), only this bridge (#218)

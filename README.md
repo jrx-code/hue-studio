@@ -32,7 +32,7 @@ Entities about a light, sensor, room or zone are attached to the device the core
 | `number` Dynamic speed | room or zone | palette speed of the active scene, 1 to 100 % |
 | `number` Motion sensitivity | motion sensor | sensitivity of the sensor |
 | `select` Power-on behaviour | light | after a power cut: safety, restore, last state (disabled by default) |
-| `update` Bridge and device software | bridge | devices ready to install; Install runs the bridge's install of everything ready (the bridge has no per-device install) |
+| `update` Bridge and device software | bridge | devices ready to install; Install runs the bridge's install of everything ready (the bridge has no per-device install) and restarts the bridge for 2 to 3 minutes |
 | `sensor` Scenes in bridge memory, Scene memory used | bridge | scenes stored and the share of the bridge limit in use |
 | `sensor` Scenes without references | bridge | scenes no smart scene, sensor or switch rule, hue-web reaction, Home Assistant automation or script recalls |
 | `scene` per hub scene | Hue Web | a hue-web scene that spans bridges; activating it recalls it on every bridge |
@@ -41,7 +41,7 @@ Entities about a light, sensor, room or zone are attached to the device the core
 Dynamic scene and speed exist for rooms and zones with at least one scene that has a palette; those of zones start
 disabled (zones overlap the rooms).
 
-hue-web relays the bridge event stream, so a change made in the Hue app shows within seconds; while both streams are up
+hue-web relays the bridge event stream, so a change made in the Hue app shows within seconds (an event re-reads only its own bridge); while both streams are up
 the integration polls every 5 minutes, otherwise every minute. Scene usage, sensor and switch rules and software state
 are read every 5 minutes and after a change. Entities of resources removed from a bridge leave the registry after two
 reads without them.

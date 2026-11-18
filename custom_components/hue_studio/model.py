@@ -98,7 +98,14 @@ def firmware(updates: dict | None) -> dict | None:
     return {"version": b.get("swversion"), "bridge_ready": b.get("state") == "readytoinstall",
             "install_available": bool(b.get("install_available")),
             "installing": bool((updates.get("counts") or {}).get("installing")) or b.get("state") == "installing",
-            "ready": ready, "pending": pending, "autoinstall": (b.get("autoinstall") or {}).get("on")}
+            "ready": ready, "pending": pending, "autoinstall": (b.get("autoinstall") or {}).get("on"),
+            "autoinstall_time": _clock((b.get("autoinstall") or {}).get("updatetime"))}
+
+
+def _clock(value) -> str | None:
+    """The bridge's "T03:00:00" as "03:00"."""
+    text = str(value or "").lstrip("T")
+    return text[:5] if len(text) >= 5 and text[2] == ":" else None
 
 
 def scene_refs(snap: "Snapshot") -> dict[str, list[str]] | None:
@@ -262,6 +269,26 @@ def needs_refresh(frame: list) -> bool:
             if rtype == "scene" and ("speed" in row or (row.get("status") or {}).get("active") == "dynamic_palette"):
                 return True
     return False
+
+
+SMART_STATE_KEYS = {"id", "id_v1", "owner", "type", "state", "active_timeslot"}
+
+
+def smart_scene_states(frame: list) -> dict[str, str] | None:
+    """{smart scene rid: "active"/"inactive"} when the only reason a frame would refresh is smart scenes starting or
+    stopping, else None. Those are most refreshes (10 of 10 in 13 min on 2026-11-18) and the event carries the new state,
+    so the entities update from it without reading the bridge (#218)."""
+    out: dict[str, str] = {}
+    for event in frame if isinstance(frame, list) else []:
+        for row in event.get("data") or []:
+            if not needs_refresh([{"type": event.get("type"), "data": [row]}]):
+                continue
+            if (event.get("type") == "update" and row.get("type") == "smart_scene" and row.get("id")
+                    and row.get("state") in ("active", "inactive") and set(row) <= SMART_STATE_KEYS):
+                out[row["id"]] = row["state"]
+            else:
+                return None
+    return out or None
 
 
 SLOW_TYPES = {"behavior_instance", "device_software_update", "bridge", "scene", "smart_scene"}
